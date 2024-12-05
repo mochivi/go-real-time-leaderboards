@@ -39,6 +39,18 @@ func NewServer(cfg conf.ServerConfig, dependencies DependencyContainer) *Server 
 }
 
 func (s *Server) mount() {
+	apiGroup := s.engine.Group("/api")
+	v1Group := apiGroup.Group("/v1")
+
+	// Leaderboard endpoints
+	leaderboardsGroup := v1Group.Group("/leaderboards")
+	{
+		leaderboardsGroup.GET("/:id", s.dependencies.Controllers.Leaderboards.Get)
+		leaderboardsGroup.POST("/", s.dependencies.Controllers.Leaderboards.Create)
+		leaderboardsGroup.PUT(" /", s.dependencies.Controllers.Leaderboards.Update)
+		leaderboardsGroup.DELETE("/:id", s.dependencies.Controllers.Leaderboards.Delete)
+	}
+	
 	s.engine.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Hello World",
