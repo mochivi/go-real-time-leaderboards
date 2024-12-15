@@ -1,0 +1,13 @@
+.env
+.env.local
+.env.development
+.env.production
+real-time-leaderboards/build/*
+
+.idea
+.vscode
+
+*.mod
+*.sum
+
+Makefile
