@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mochivi/real-time-leaderboards/internal/models"
-	"github.com/mochivi/real-time-leaderboards/internal/storage"
+	"github.com/mochivi/go-real-time-leaderboards/internal/models"
+	"github.com/mochivi/go-real-time-leaderboards/internal/storage"
 )
 
 type LeaderboardController struct {

@@ -6,13 +6,13 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	"github.com/mochivi/real-time-leaderboards/conf"
-	"github.com/mochivi/real-time-leaderboards/internal/api/handlers"
-	"github.com/mochivi/real-time-leaderboards/internal/auth"
-	"github.com/mochivi/real-time-leaderboards/internal/server"
-	"github.com/mochivi/real-time-leaderboards/internal/storage"
-	"github.com/mochivi/real-time-leaderboards/internal/storage/redis"
-	"github.com/mochivi/real-time-leaderboards/utils"
+	"github.com/mochivi/go-real-time-leaderboards/conf"
+	"github.com/mochivi/go-real-time-leaderboards/internal/api/handlers"
+	"github.com/mochivi/go-real-time-leaderboards/internal/auth"
+	"github.com/mochivi/go-real-time-leaderboards/internal/server"
+	"github.com/mochivi/go-real-time-leaderboards/internal/storage"
+	"github.com/mochivi/go-real-time-leaderboards/internal/storage/redis"
+	"github.com/mochivi/go-real-time-leaderboards/utils"
 )
 
 

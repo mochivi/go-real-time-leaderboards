@@ -4,11 +4,11 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mochivi/real-time-leaderboards/conf"
-	"github.com/mochivi/real-time-leaderboards/internal/api/handlers"
-	"github.com/mochivi/real-time-leaderboards/internal/api/middlewares"
-	"github.com/mochivi/real-time-leaderboards/internal/auth"
-	"github.com/mochivi/real-time-leaderboards/internal/storage/redis"
+	"github.com/mochivi/go-real-time-leaderboards/conf"
+	"github.com/mochivi/go-real-time-leaderboards/internal/api/handlers"
+	"github.com/mochivi/go-real-time-leaderboards/internal/api/middlewares"
+	"github.com/mochivi/go-real-time-leaderboards/internal/auth"
+	"github.com/mochivi/go-real-time-leaderboards/internal/storage/redis"
 )
 
 // Repositories are owned by each Controller

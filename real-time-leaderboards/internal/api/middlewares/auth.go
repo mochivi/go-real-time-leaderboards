@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/mochivi/real-time-leaderboards/internal/auth"
+	"github.com/mochivi/go-real-time-leaderboards/internal/auth"
 )
 
 func abortWithError(c *gin.Context, statusCode int, message string) {

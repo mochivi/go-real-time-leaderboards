@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/mochivi/real-time-leaderboards/internal/models"
+	"github.com/mochivi/go-real-time-leaderboards/internal/models"
 )
 
 type UserRepo interface {

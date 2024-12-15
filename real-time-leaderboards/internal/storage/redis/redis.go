@@ -5,7 +5,7 @@ import (
 	"log"
 
 	redis "github.com/go-redis/redis/v8"
-	"github.com/mochivi/real-time-leaderboards/conf"
+	"github.com/mochivi/go-real-time-leaderboards/conf"
 )
 
 type RedisService interface{}

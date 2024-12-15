@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mochivi/real-time-leaderboards/internal/auth"
+	"github.com/mochivi/go-real-time-leaderboards/internal/auth"
 )
 
 // Parses the user claims from the request
