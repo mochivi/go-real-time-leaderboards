@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -17,6 +18,7 @@ func NewUserController(repo storage.UserRepo) UserController {
 		repo: repo,
 	}
 }
+
 
 // Create a new user
 func (u UserController) Register(c *gin.Context) {
@@ -91,6 +93,7 @@ func (u UserController) Update(c *gin.Context) {
 	// Get user claims
 	userClaims, err := parseUserClaims(c)
 	if err != nil {
+		log.Printf("Failed to parse user claims from context: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
 		})
@@ -103,7 +106,6 @@ func (u UserController) Update(c *gin.Context) {
 			"message": "Not enough priviliges for this operation",
 		})
 	}
-	
 
 	// Update user to database
 	user, err := u.repo.Update(c.Request.Context(), &updateUser)
@@ -117,7 +119,7 @@ func (u UserController) Update(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"data": user,
-		"message": "User created",
+		"message": "User updated",
 	})
 
 }
