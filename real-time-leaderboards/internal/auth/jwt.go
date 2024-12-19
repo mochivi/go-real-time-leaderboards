@@ -15,11 +15,11 @@ type JWTService interface {
 	CreateAccessTokens(string, string) (AuthResponse, error)
 
 	// VerifyToken parses the token and returns the user claims
-	VerifyToken(tokenString string) (*CustomClaims, error)
+	VerifyToken(string) (*CustomClaims, error)
 
 	// ParseTokenFromHeader will return a token from an authorization header
 	// panics if the Authorization header is malformed
-	ParseTokenFromHeader(authHeader string) (string, bool)
+	ParseTokenFromHeader(string) (string, bool)
 }
 
 // JWTService generates access and refresh tokens
