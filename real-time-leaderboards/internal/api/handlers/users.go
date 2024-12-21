@@ -56,7 +56,7 @@ func (u UserController) Get(c *gin.Context) {
 
 	// Get id from request
 	userID, ok := c.Params.Get("id")
-	if !ok {
+	if !ok || userID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "ID not provided in the request",
 			"message": "Bad request",
@@ -101,10 +101,17 @@ func (u UserController) Update(c *gin.Context) {
 	}
 
 	// Validate user can update the provided user
-	if userClaims.UserID != updateUser.ID || userClaims.Role != "administrator" {
+	if userClaims.UserID != updateUser.ID && userClaims.Role != "administrator" {
+		log.Printf(
+			"User with claimed ID '%s' and role '%s' tried updating user of ID '%s'", 
+			userClaims.UserID,
+			userClaims.Role,
+			updateUser.ID,
+		)
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"message": "Not enough priviliges for this operation",
 		})
+		return
 	}
 
 	// Update user to database
@@ -121,7 +128,6 @@ func (u UserController) Update(c *gin.Context) {
 		"data": user,
 		"message": "User updated",
 	})
-
 }
 
 
