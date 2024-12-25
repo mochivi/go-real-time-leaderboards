@@ -11,17 +11,17 @@ import (
 )
 
 func abortWithError(c *gin.Context, statusCode int, message string) {
-    c.JSON(statusCode, gin.H{"error": message})
-    c.Abort()
+	c.JSON(statusCode, gin.H{"error": message})
+	c.Abort()
 }
 
 func abortWithLoginRedirection(c *gin.Context, statusCode int, message string) {
 	c.JSON(statusCode, gin.H{"error": message})
 	c.Redirect(http.StatusFound, "api/v1/auth/login")
-    c.Abort()
+	c.Abort()
 }
 
-/* 
+/*
 Auth middleware:
 1. Ensures AccessToken is refreshed on every request as long as the user has a valid AccessToken or RefreshToken
 2. RefreshToken itself is not refreshed, this is done to prevent bad actos from gaining control to an user account for longer than the TTL of the
@@ -29,7 +29,7 @@ Auth middleware:
 
 	AccessTokenTTL = 5 minutes
 	RefreshTokenTTL = 30 minutes
-	
+
 	If only the AccessToken is stolen:
 		Account will be compromised for only the TTL of the token
 	If only the RefreshToken is stolen:
@@ -40,7 +40,6 @@ Auth middleware:
 3. Ideally, SSO would be implemented alongside the JWT validation to ensure users can easily log back into the system
 	whenever their RefreshTokens expire. The current implementation is secure but users will have to input their credentials every 30 minutes
 */
-
 
 // JWTService is injected into the middleware by the server
 func ValidateAuth(j auth.JWTService) gin.HandlerFunc {
@@ -74,28 +73,28 @@ func ValidateAuth(j auth.JWTService) gin.HandlerFunc {
 				abortWithError(c, http.StatusUnauthorized, "Unauthorized")
 				return
 			}
-			
+
 		}
 
 		// We will try to use the refreshToken is the provided accessToken is expired
 		if useRefreshToken {
 			refreshTokenCookie, err := c.Request.Cookie("refresh_token")
-				if err != nil {
-					if errors.Is(err, http.ErrNoCookie) {
-						abortWithError(c, http.StatusBadRequest, "Missing refresh_token cookie")
-					} else {
-						abortWithError(c, http.StatusInternalServerError, "Internal server error")
-					}
-					return
+			if err != nil {
+				if errors.Is(err, http.ErrNoCookie) {
+					abortWithError(c, http.StatusBadRequest, "Missing refresh_token cookie")
+				} else {
+					abortWithError(c, http.StatusInternalServerError, "Internal server error")
 				}
+				return
+			}
 
-				refreshTokenString := refreshTokenCookie.Value
-				userClaims, err = j.VerifyToken(refreshTokenString)
-				if err != nil {
-					log.Printf("Failed to verify JWT RefreshToken: %v", err)
-					abortWithError(c, http.StatusUnauthorized, "Unauthorized")
-					return
-				}
+			refreshTokenString := refreshTokenCookie.Value
+			userClaims, err = j.VerifyToken(refreshTokenString)
+			if err != nil {
+				log.Printf("Failed to verify JWT RefreshToken: %v", err)
+				abortWithError(c, http.StatusUnauthorized, "Unauthorized")
+				return
+			}
 		}
 
 		// Update user cookies with the validated roles
@@ -131,7 +130,6 @@ func ValidateAdmin() gin.HandlerFunc {
 
 		// Receive userClaims from context
 		claims, ok := c.Get("UserClaims")
-		log.Printf("Admin request: %+v", claims)
 		if !ok {
 			abortWithError(c, http.StatusUnauthorized, "Missing user claims")
 			return

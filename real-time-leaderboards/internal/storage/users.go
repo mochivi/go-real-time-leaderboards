@@ -23,13 +23,13 @@ type UserRepoPG struct {
 	db *sql.DB
 }
 
-func NewUserRepoPG(db *sql.DB) UserRepoPG {
-	return UserRepoPG{
+func NewUserRepoPG(db *sql.DB) *UserRepoPG {
+	return &UserRepoPG{
 		db: db,
 	}
 }
 
-func (ur UserRepoPG) Create(ctx context.Context, registerUser *models.RegisterUser, passwordHash string) (*models.User, error) {
+func (ur *UserRepoPG) Create(ctx context.Context, registerUser *models.RegisterUser, passwordHash string) (*models.User, error) {
 
 	stmt, err := ur.db.PrepareContext(ctx, `
 		INSERT INTO users (username, password_hash, email)
@@ -66,7 +66,7 @@ func (ur UserRepoPG) Create(ctx context.Context, registerUser *models.RegisterUs
 }
 
 
-func (ur UserRepoPG) GetByUsername(ctx context.Context, username string) (*models.User, error) {
+func (ur *UserRepoPG) GetByUsername(ctx context.Context, username string) (*models.User, error) {
 
 	stmt, err := ur.db.PrepareContext(ctx, `
 		SELECT id, username, password_hash, email, role, created_at, updated_at
@@ -98,7 +98,7 @@ func (ur UserRepoPG) GetByUsername(ctx context.Context, username string) (*model
 	return &user, nil
 }
 
-func (ur UserRepoPG) GetByID(ctx context.Context, userID string) (*models.User, error) {
+func (ur *UserRepoPG) GetByID(ctx context.Context, userID string) (*models.User, error) {
 
 	stmt, err := ur.db.PrepareContext(ctx, `
 		SELECT id, username, password_hash, email, role, created_at, updated_at
@@ -130,7 +130,7 @@ func (ur UserRepoPG) GetByID(ctx context.Context, userID string) (*models.User, 
 	return &user, nil
 }
 
-func (ur UserRepoPG) Update(ctx context.Context, updateUser *models.UpdateUser) (*models.User, error) {
+func (ur *UserRepoPG) Update(ctx context.Context, updateUser *models.UpdateUser) (*models.User, error) {
 
 	stmt, err := ur.db.PrepareContext(ctx, `
 		UPDATE users 
@@ -171,7 +171,7 @@ func (ur UserRepoPG) Update(ctx context.Context, updateUser *models.UpdateUser) 
 	return &updatedUser, nil
 }
 
-func (ur UserRepoPG) Delete(ctx context.Context, userID string) error {
+func (ur *UserRepoPG) Delete(ctx context.Context, userID string) error {
 
 	stmt, err := ur.db.PrepareContext(ctx, `DELETE FROM users WHERE id = $1`)
 	if err != nil {

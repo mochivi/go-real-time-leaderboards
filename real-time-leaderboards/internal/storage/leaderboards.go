@@ -24,6 +24,7 @@ type LeaderboardRepoPG struct {
 	db *sql.DB
 }
 
+// The creation of the implementation can return an interface 
 func NewLeaderboardRepoPG(db *sql.DB) *LeaderboardRepoPG {
 	return &LeaderboardRepoPG{
 		db: db,

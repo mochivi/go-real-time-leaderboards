@@ -5,17 +5,16 @@ import (
 	"log"
 
 	redis "github.com/go-redis/redis/v8"
-	"github.com/mochivi/go-real-time-leaderboards/conf"
+	"github.com/mochivi/go-real-time-leaderboards/config"
 )
 
 type RedisService interface{}
-
 
 type redisService struct {
 	client *redis.Client
 }
 
-func NewRedisService(redisConfig conf.RedisConfig) RedisService {
+func NewRedisService(redisConfig config.RedisConfig) RedisService {
 	client := redis.NewClient(&redis.Options{
 		Addr:     redisConfig.Addr(),
 		Password: redisConfig.Password,

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	"github.com/mochivi/go-real-time-leaderboards/conf"
+	"github.com/mochivi/go-real-time-leaderboards/config"
 	"github.com/mochivi/go-real-time-leaderboards/internal/api/handlers"
 	"github.com/mochivi/go-real-time-leaderboards/internal/auth"
 	"github.com/mochivi/go-real-time-leaderboards/internal/server"
@@ -15,26 +15,25 @@ import (
 	"github.com/mochivi/go-real-time-leaderboards/utils"
 )
 
-
 func main() {
 
 	// Load environment variables, not needed in containers
 	godotenv.Load()
 
 	// Create config
-	cfg := conf.Config{
-		ServerConfig: conf.ServerConfig{
+	cfg := config.Config{
+		ServerConfig: config.ServerConfig{
 			Host: utils.GetEnvString("SERVER_HOSTNAME", "localhost"),
 			Port: utils.GetEnvInt("SERVER_PORT", 8080),
 		},
-		DBConfig: conf.DBConfig{
+		DBConfig: config.DBConfig{
 			Host: utils.GetEnvString("POSTGRES_HOST", "localhost"),
 			Port: utils.GetEnvInt("POSTGRES_PORT", 5432),
 			MaxOpenConns: utils.GetEnvInt("POSTGRES_MAX_OPEN_CONNS", 10),
 			MaxIdleConns: utils.GetEnvInt("POSTGRES_MAX_IDLE_CONNS", 10),
 			MaxIdleTime:  utils.GetEnvString("POSTGRES_MAX_IDLE_TIME", "30s"),
 		},
-		RedisConfig: conf.RedisConfig{
+		RedisConfig: config.RedisConfig{
 			Host: utils.GetEnvString("REDIS_HOST", "localhost"),
 			Port: utils.GetEnvInt("REDIS_PORT", 6379),
 			Password: utils.GetEnvString("REDIS_PASSWORD", "redis"),
@@ -48,8 +47,13 @@ func main() {
 	// Initialize services
 	jwtService, redisService := initServices(cfg.RedisConfig)
 
-	// Initialize dependencies
-	dependencies := initDependencies(pgDB, jwtService, redisService)
+	// Initialize dependencies with concrete types
+	dependencies := initDependencies(
+		storage.NewLeaderboardRepoPG(pgDB),
+		storage.NewUserRepoPG(pgDB),
+		jwtService,
+		redisService,
+	)
 
 	// Initialize server
 	server := server.NewServer(cfg.ServerConfig, dependencies)
@@ -62,26 +66,42 @@ func main() {
 
 }
 
-// Initializes database
-func initDB(dbConfig conf.DBConfig) *sql.DB {
-
-	log.Println("Connecting to postgres database...")
-	pgDB, err := storage.NewPostgres(
-		dbConfig.DSN(),
-		dbConfig.MaxOpenConns,
-		dbConfig.MaxIdleConns,
-		dbConfig.MaxIdleTime,
-	)
-	if err != nil {
-		log.Fatalf("Failed to connect to postgres database: %v", err)
+// Accept interfaces for creating any kind of configuration
+func initDependencies(
+	leaderboardRepo storage.LeaderboardRepo,
+	userRepo storage.UserRepo,
+	jwtService auth.JWTService, 
+	redisService redis.RedisService,
+) server.DependencyContainer {
+	
+	controllers := struct{
+		Leaderboards handlers.LeaderboardController
+		Auth handlers.AuthController
+		Users handlers.UserController
+	}{
+		Leaderboards: handlers.NewLeaderboardController(leaderboardRepo),
+		Auth: handlers.NewAuthController(userRepo, jwtService),
+		Users: handlers.NewUserController(userRepo),
 	}
 
-	log.Println("Connected to postgres db")
+	services := struct{
+		JWTService auth.JWTService
+		RedisService redis.RedisService
+	}{
+		JWTService: jwtService,
+		RedisService: redisService,
+	}
 
-	return pgDB
+	dependencies := server.DependencyContainer{
+		Controllers: controllers, 
+		Services: services,
+	}
+
+	return dependencies
 }
 
-func initServices(redisConfig conf.RedisConfig) (auth.JWTService, redis.RedisService) {
+// Initialize services
+func initServices(redisConfig config.RedisConfig) (auth.JWTService, redis.RedisService) {
 	
 	// Redis service
 	log.Println("Connecting to redis database...")
@@ -100,38 +120,21 @@ func initServices(redisConfig conf.RedisConfig) (auth.JWTService, redis.RedisSer
 	return jtwtService, redisService
 }
 
-func initDependencies(pgDB *sql.DB, jwtService auth.JWTService, redisService redis.RedisService) server.DependencyContainer {
-	
-	// Initialize dependencies, supporting dependency injection
-	// Provide concrete implementations
-	dependencies := server.DependencyContainer{
-		
-		Controllers: struct{
-			Leaderboards handlers.LeaderboardController
-			Auth handlers.AuthController
-			Users handlers.UserController
-		}{
-			Leaderboards: handlers.NewLeaderboardController(
-				storage.NewLeaderboardRepoPG(pgDB),
-			),
-			Auth: handlers.NewAuthController(
-				storage.NewUserRepoPG(pgDB),
-				jwtService,
-			),
-			Users: handlers.NewUserController(
-				storage.NewUserRepoPG(pgDB),
-			),
-		},
+// Initializes database
+func initDB(dbConfig config.DBConfig) *sql.DB {
 
-		Services: struct{
-			JWTService auth.JWTService
-			RedisService redis.RedisService
-		}{
-			JWTService: jwtService,
-			RedisService: redisService,
-		},
+	log.Println("Connecting to postgres database...")
+	pgDB, err := storage.NewPostgres(
+		dbConfig.DSN(),
+		dbConfig.MaxOpenConns,
+		dbConfig.MaxIdleConns,
+		dbConfig.MaxIdleTime,
+	)
+	if err != nil {
+		log.Fatalf("Failed to connect to postgres database: %v", err)
 	}
 
+	log.Println("Connected to postgres db")
 
-	return dependencies
+	return pgDB
 }

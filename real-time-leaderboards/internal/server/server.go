@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mochivi/go-real-time-leaderboards/conf"
+	"github.com/mochivi/go-real-time-leaderboards/config"
 	"github.com/mochivi/go-real-time-leaderboards/internal/api/handlers"
 	"github.com/mochivi/go-real-time-leaderboards/internal/api/middlewares"
 	"github.com/mochivi/go-real-time-leaderboards/internal/auth"
@@ -25,15 +25,15 @@ type DependencyContainer struct {
 }
 
 type Server struct {
-	config conf.ServerConfig
-	engine *gin.Engine
+	config config.ServerConfig
+	Engine *gin.Engine
 	dependencies DependencyContainer
 }
 
-func NewServer(cfg conf.ServerConfig, dependencies DependencyContainer) *Server {
+func NewServer(cfg config.ServerConfig, dependencies DependencyContainer) *Server {
 	server := &Server{
 		config: cfg,
-		engine: gin.Default(),
+		Engine: gin.Default(),
 		dependencies: dependencies,
 	}
 	server.mount()
@@ -41,7 +41,7 @@ func NewServer(cfg conf.ServerConfig, dependencies DependencyContainer) *Server 
 }
 
 func (s *Server) mount() {
-	apiGroup := s.engine.Group("/api")
+	apiGroup := s.Engine.Group("/api")
 	v1Group := apiGroup.Group("/v1")
 
 	// Auth endpoints
@@ -82,7 +82,7 @@ func (s *Server) mount() {
 		adminleaderboardsGroup.DELETE("/:id",s.dependencies.Controllers.Leaderboards.Delete)
 	}
 	
-	s.engine.GET("/", func(c *gin.Context) {
+	s.Engine.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Hello World",
 		})
@@ -90,5 +90,5 @@ func (s *Server) mount() {
 }
 
 func (s *Server) Run() error {
-	return s.engine.Run(s.config.GetPort())
+	return s.Engine.Run(s.config.GetPort())
 }
