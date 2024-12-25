@@ -1,12 +1,7 @@
 package handlers
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
-	"io"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -16,8 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
-
-var ErrRepoOperation = errors.New("failed db operation")
 
 func TestUsersGet(t *testing.T) {
 
@@ -30,7 +23,7 @@ func TestUsersGet(t *testing.T) {
 	}{
 		{
 			name:           "get user",
-			mockRepo:       setupMocks("GetByID", []any{"1"}, []any{&models.User{ID: "1"}, nil}),
+			mockRepo:       setupUserRepoMock("GetByID", []any{"1"}, []any{&models.User{ID: "1"}, nil}),
 			expectedStatus: http.StatusOK,
 			requestOpts: requestOpts{
 				params: map[string]string{
@@ -49,7 +42,7 @@ func TestUsersGet(t *testing.T) {
 		},
 		{
 			name:           "get user db error",
-			mockRepo:       setupMocks("GetByID", []any{"1"}, []any{&models.User{}, ErrRepoOperation}),
+			mockRepo:       setupUserRepoMock("GetByID", []any{"1"}, []any{&models.User{}, ErrRepoOperation}),
 			expectedStatus: http.StatusNotFound,
 			requestOpts: requestOpts{
 				params: map[string]string{
@@ -67,7 +60,6 @@ func TestUsersGet(t *testing.T) {
 
 			// Execute request and received recorded and decoded response
 			w := executeRequest(
-				"GET",
 				[]gin.HandlerFunc{uc.Get},
 				testCase.requestOpts,
 			)
@@ -99,13 +91,13 @@ func TestUsersRegister(t *testing.T) {
 	}{
 		{
 			name:           "register user",
-			mockRepo:       setupMocks("Create", []any{&registerUser}, []any{&models.User{ID: "1"}, nil}),
+			mockRepo:       setupUserRepoMock("Create", []any{&registerUser}, []any{&models.User{ID: "1"}, nil}),
 			expectedStatus: http.StatusCreated,
 			requestOpts:    requestOpts{body: registerUser},
 		},
 		{
 			name:           "register user db error",
-			mockRepo:       setupMocks("Create", []any{&registerUser}, []any{&models.User{}, ErrRepoOperation}),
+			mockRepo:       setupUserRepoMock("Create", []any{&registerUser}, []any{&models.User{}, ErrRepoOperation}),
 			expectedStatus: http.StatusInternalServerError,
 			requestOpts:    requestOpts{body: registerUser},
 		},
@@ -117,7 +109,6 @@ func TestUsersRegister(t *testing.T) {
 
 			// Execute request and received recorded and decoded response
 			w := executeRequest(
-				"POST",
 				[]gin.HandlerFunc{uc.Register},
 				testCase.requestOpts,
 			)
@@ -143,7 +134,7 @@ func TestUsersUpdate(t *testing.T) {
 	}{
 		{
 			name:           "succesful update user",
-			mockRepo:       setupMocks("Update", []any{mock.AnythingOfType("*models.UpdateUser")}, []any{&models.User{ID: "1"}, nil}),
+			mockRepo:       setupUserRepoMock("Update", []any{mock.AnythingOfType("*models.UpdateUser")}, []any{&models.User{ID: "1"}, nil}),
 			userID:         "1", // The ID of the user making the request
 			userRole:       "visitor",
 			expectedStatus: http.StatusCreated,
@@ -156,7 +147,7 @@ func TestUsersUpdate(t *testing.T) {
 		},
 		{
 			name:           "admin update another user",
-			mockRepo:       setupMocks("Update", []any{mock.AnythingOfType("*models.UpdateUser")}, []any{&models.User{ID: "3"}, nil}),
+			mockRepo:       setupUserRepoMock("Update", []any{mock.AnythingOfType("*models.UpdateUser")}, []any{&models.User{ID: "3"}, nil}),
 			userID:         "1",
 			userRole:       "administrator",
 			expectedStatus: http.StatusCreated,
@@ -182,7 +173,7 @@ func TestUsersUpdate(t *testing.T) {
 		},
 		{
 			name: "update user db error",
-			mockRepo: setupMocks(
+			mockRepo: setupUserRepoMock(
 				"Update",
 				[]any{mock.AnythingOfType("*models.UpdateUser")},
 				[]any{new(models.User), ErrRepoOperation},
@@ -205,7 +196,6 @@ func TestUsersUpdate(t *testing.T) {
 
 			// Execute request and received recorded and decoded response
 			w := executeRequest(
-				"PUT",
 				[]gin.HandlerFunc{
 					mocks.MockValidateAuthMiddleware(&auth.CustomClaims{
 						UserID: testCase.userID,
@@ -236,7 +226,7 @@ func TestUsersDelete(t *testing.T) {
 	}{
 		{
 			name:           "succesful delete user",
-			mockRepo:       setupMocks("Delete", []any{"1"}, []any{nil}),
+			mockRepo:       setupUserRepoMock("Delete", []any{"1"}, []any{nil}),
 			userID:         "1", // The ID of the user making the request
 			userRole:       "visitor",
 			expectedStatus: http.StatusOK,
@@ -244,7 +234,7 @@ func TestUsersDelete(t *testing.T) {
 		},
 		{
 			name:           "admin delete another user",
-			mockRepo:       setupMocks("Delete", []any{"3"}, []any{nil}),
+			mockRepo:       setupUserRepoMock("Delete", []any{"3"}, []any{nil}),
 			userID:         "1",
 			userRole:       "administrator",
 			expectedStatus: http.StatusOK,
@@ -260,7 +250,7 @@ func TestUsersDelete(t *testing.T) {
 		},
 		{
 			name:           "update user db error",
-			mockRepo:       setupMocks("Delete", []any{"1"}, []any{ErrRepoOperation}),
+			mockRepo:       setupUserRepoMock("Delete", []any{"1"}, []any{ErrRepoOperation}),
 			userID:         "1",
 			userRole:       "visitor",
 			expectedStatus: http.StatusInternalServerError,
@@ -274,7 +264,6 @@ func TestUsersDelete(t *testing.T) {
 
 			// Execute request and received recorded and decoded response
 			w := executeRequest(
-				"DELETE",
 				[]gin.HandlerFunc{
 					mocks.MockValidateAuthMiddleware(&auth.CustomClaims{
 						UserID: testCase.userID,
@@ -293,7 +282,7 @@ func TestUsersDelete(t *testing.T) {
 	}
 
 	// Setup mock repo, assign functions to call and handlers to call in order
-	mockUserRepo := setupMocks("Delete", []any{"1"}, []any{nil})
+	mockUserRepo := setupUserRepoMock("Delete", []any{"1"}, []any{nil})
 	uc := NewUserController(mockUserRepo)
 	testHandlers := []gin.HandlerFunc{
 		mocks.MockValidateAuthMiddleware(&auth.CustomClaims{
@@ -302,87 +291,8 @@ func TestUsersDelete(t *testing.T) {
 		}),
 		uc.Delete,
 	}
-	w := executeRequest("DELETE", testHandlers, requestOpts{params: map[string]string{"id": "1"}})
+	w := executeRequest(testHandlers, requestOpts{params: map[string]string{"id": "1"}})
 
 	// Assert responses
 	assert.Equal(t, http.StatusOK, w.Code)
-}
-
-func setupMocks(funcName string, args, returns []any) *mocks.MockUserRepo {
-	mockUserRepo := mocks.MockUserRepo{}
-	mockUserRepo.On(funcName, args...).Return(returns...)
-	return &mockUserRepo
-}
-
-type requestOpts struct {
-	headers map[string]string
-	body    any
-	params  map[string]string
-}
-
-func (r requestOpts) Body() ([]byte, bool) {
-	if r.body != nil {
-		body, _ := json.Marshal(r.body)
-		return body, true
-	}
-	return nil, false
-}
-
-func (r requestOpts) Headers() (map[string]string, bool) {
-	if r.headers != nil {
-		return r.headers, true
-	}
-	return nil, false
-}
-
-func (r requestOpts) Params() (map[string]string, bool) {
-	if r.params != nil {
-		return r.params, true
-	}
-	return nil, false
-}
-
-func executeRequest(method string, testHandlers []gin.HandlerFunc, requestOpts ...requestOpts) *httptest.ResponseRecorder {
-	gin.SetMode(gin.TestMode)
-
-	// Create recorder and gin context
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request, _ = http.NewRequest(method, "/", nil)
-
-	// Check if received a report body, otherwise leave as nil
-	if len(requestOpts) > 0 {
-		requestOpts := requestOpts[0]
-
-		// Set body
-		if body, ok := requestOpts.Body(); ok {
-			c.Request.Body = io.NopCloser(bytes.NewReader(body))
-		}
-
-		// Set headers
-		if headers, ok := requestOpts.Headers(); ok {
-			for k, v := range headers {
-				c.Request.Header.Set(k, v)
-			}
-		}
-
-		// Set params
-		if setParams, ok := requestOpts.Params(); ok {
-			params := []gin.Param{}
-			for k, v := range setParams {
-				params = append(params, gin.Param{
-					Key:   k,
-					Value: v,
-				})
-			}
-			c.Params = params
-		}
-	}
-
-	// Go one handler by one in the provided list
-	for _, handler := range testHandlers {
-		handler(c)
-	}
-
-	return w
 }

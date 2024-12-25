@@ -23,17 +23,25 @@ func NewLeaderboardController(repo storage.LeaderboardRepo) LeaderboardControlle
 // Returns a JSON encoded leaderboard
 func (l LeaderboardController) Get(c *gin.Context) {
 	leaderboardID := c.Param("id")
+	if leaderboardID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "invalid request",
+			"message": "missing leaderboard id",
+		})
+		return
+	}
+
 	leaderboard, err := l.repo.Get(c.Request.Context(), leaderboardID)
 	if err != nil {
 		var errorMessage string
 		var statusCode int
 		switch err {
-			case storage.ErrNotFound:
-				statusCode = http.StatusNotFound
-				errorMessage = "Leaderboard not found"
-			default:
-				statusCode = http.StatusInternalServerError
-				errorMessage = "Something went wrong"
+		case storage.ErrNotFound:
+			statusCode = http.StatusNotFound
+			errorMessage = "Leaderboard not found"
+		default:
+			statusCode = http.StatusInternalServerError
+			errorMessage = "Something went wrong"
 		}
 		c.JSON(statusCode, gin.H{
 			"error":   "Failed to get data",
@@ -50,18 +58,25 @@ func (l LeaderboardController) Get(c *gin.Context) {
 
 func (l LeaderboardController) GetEntries(c *gin.Context) {
 	leaderboardID := c.Param("id")
+	if leaderboardID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "invalid request",
+			"message": "missing leaderboard id",
+		})
+		return
+	}
 
 	leaderboardEntries, err := l.repo.GetEntries(c.Request.Context(), leaderboardID)
 	if err != nil {
 		var errorMessage string
 		var statusCode int
 		switch err {
-			case storage.ErrNotFound:
-				statusCode = http.StatusNotFound
-				errorMessage = "Leaderboard not found"
-			default:
-				statusCode = http.StatusInternalServerError
-				errorMessage = "Something went wrong"
+		case storage.ErrNotFound:
+			statusCode = http.StatusNotFound
+			errorMessage = "Leaderboard not found"
+		default:
+			statusCode = http.StatusInternalServerError
+			errorMessage = "Something went wrong"
 		}
 		c.JSON(statusCode, gin.H{
 			"error":   "Failed to get data",
@@ -90,10 +105,10 @@ func (l LeaderboardController) Create(c *gin.Context) {
 	if err != nil {
 		var errorMessage string
 		switch err {
-			case storage.ErrConflict:
-				errorMessage = "Leaderboard already exists"
-			default:
-				errorMessage = "Something went wrong"
+		case storage.ErrConflict:
+			errorMessage = "Leaderboard already exists"
+		default:
+			errorMessage = "Something went wrong"
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   http.StatusInternalServerError,
@@ -126,10 +141,10 @@ func (l LeaderboardController) CreateEntry(c *gin.Context) {
 	if err != nil {
 		var errorMessage string
 		switch err {
-			case storage.ErrConflict:
-				errorMessage = "Leaderboard entry already exists"
-			default:
-				errorMessage = "Something went wrong"
+		case storage.ErrConflict:
+			errorMessage = "Leaderboard entry already exists"
+		default:
+			errorMessage = "Something went wrong"
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   http.StatusInternalServerError,
@@ -146,7 +161,7 @@ func (l LeaderboardController) CreateEntry(c *gin.Context) {
 }
 
 func (l LeaderboardController) Update(c *gin.Context) {
-	
+
 	leaderboard := models.UpdateLeaderboardRequest{}
 	if err := c.ShouldBindBodyWithJSON(&leaderboard); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -174,16 +189,26 @@ func (l LeaderboardController) Update(c *gin.Context) {
 
 func (l LeaderboardController) Delete(c *gin.Context) {
 	leaderboardID := c.Param("id")
+	if leaderboardID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "invalid request",
+			"message": "missing leaderboard id",
+		})
+		return
+	}
 
 	if err := l.repo.Delete(c.Request.Context(), leaderboardID); err != nil {
 		var errorMessage string
+		var statusCode int
 		switch err {
-			case storage.ErrNotFound:
-				errorMessage = "Leaderboard not found"
-			default:
-				errorMessage = "Something went wrong"
+		case storage.ErrNotFound:
+			statusCode = http.StatusNotFound
+			errorMessage = "Leaderboard not found"
+		default:
+			statusCode = http.StatusInternalServerError
+			errorMessage = "Something went wrong"
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{
+		c.JSON(statusCode, gin.H{
 			"error":   http.StatusInternalServerError,
 			"message": errorMessage,
 		})
