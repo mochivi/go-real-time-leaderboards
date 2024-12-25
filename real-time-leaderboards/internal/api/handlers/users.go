@@ -19,7 +19,6 @@ func NewUserController(repo storage.UserRepo) UserController {
 	}
 }
 
-
 // Create a new user
 func (u UserController) Register(c *gin.Context) {
 
@@ -46,11 +45,10 @@ func (u UserController) Register(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"data": user,
+		"data":    user,
 		"message": "User created",
 	})
 }
-
 
 func (u UserController) Get(c *gin.Context) {
 
@@ -58,7 +56,7 @@ func (u UserController) Get(c *gin.Context) {
 	userID, ok := c.Params.Get("id")
 	if !ok || userID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "ID not provided in the request",
+			"error":   "ID not provided in the request",
 			"message": "Bad request",
 		})
 		return
@@ -68,7 +66,7 @@ func (u UserController) Get(c *gin.Context) {
 	user, err := u.repo.GetByID(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"error": "User not found by ID",
+			"error":   "User not found by ID",
 			"message": "User not found",
 		})
 		return
@@ -79,7 +77,6 @@ func (u UserController) Get(c *gin.Context) {
 		"data": user,
 	})
 }
-
 
 func (u UserController) Update(c *gin.Context) {
 
@@ -103,7 +100,7 @@ func (u UserController) Update(c *gin.Context) {
 	// Validate user can update the provided user
 	if userClaims.UserID != updateUser.ID && userClaims.Role != "administrator" {
 		log.Printf(
-			"User with claimed ID '%s' and role '%s' tried updating user of ID '%s'", 
+			"User with claimed ID '%s' and role '%s' tried updating user of ID '%s'",
 			userClaims.UserID,
 			userClaims.Role,
 			updateUser.ID,
@@ -118,26 +115,25 @@ func (u UserController) Update(c *gin.Context) {
 	user, err := u.repo.Update(c.Request.Context(), &updateUser)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error":   err.Error(),
 			"message": "Database error",
 		})
 		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"data": user,
+		"data":    user,
 		"message": "User updated",
 	})
 }
 
-
 func (u UserController) Delete(c *gin.Context) {
-	
+
 	// Get id from request
 	userID, ok := c.Params.Get("id")
 	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "ID not provided in the request",
+			"error":   "ID not provided in the request",
 			"message": "Bad request",
 		})
 		return
@@ -153,15 +149,16 @@ func (u UserController) Delete(c *gin.Context) {
 	}
 
 	// Validate user can delete the provided user
-	if userClaims.UserID != userID || userClaims.Role != "administrator" {
+	if userClaims.UserID != userID && userClaims.Role != "administrator" {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"message": "Not enough priviliges for this operation",
 		})
+		return
 	}
 
 	if err := u.repo.Delete(c.Request.Context(), userID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error":   err.Error(),
 			"message": "Could not delete user",
 		})
 		return
