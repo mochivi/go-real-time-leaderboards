@@ -8,32 +8,32 @@ import (
 	"github.com/mochivi/go-real-time-leaderboards/internal/api/handlers"
 	"github.com/mochivi/go-real-time-leaderboards/internal/api/middlewares"
 	"github.com/mochivi/go-real-time-leaderboards/internal/auth"
-	"github.com/mochivi/go-real-time-leaderboards/internal/storage/redis"
+	redis "github.com/mochivi/go-real-time-leaderboards/internal/storage/redis"
 )
 
 // Repositories are owned by each Controller
 type DependencyContainer struct {
 	Controllers struct {
 		Leaderboards handlers.LeaderboardController
-		Auth handlers.AuthController
-		Users handlers.UserController
+		Auth         handlers.AuthController
+		Users        handlers.UserController
 	}
 	Services struct {
-		JWTService auth.JWTService
+		JWTService   auth.JWTService
 		RedisService redis.RedisService
 	}
 }
 
 type Server struct {
-	config config.ServerConfig
-	Engine *gin.Engine
+	config       config.ServerConfig
+	Engine       *gin.Engine
 	dependencies DependencyContainer
 }
 
 func NewServer(cfg config.ServerConfig, dependencies DependencyContainer) *Server {
 	server := &Server{
-		config: cfg,
-		Engine: gin.Default(),
+		config:       cfg,
+		Engine:       gin.Default(),
 		dependencies: dependencies,
 	}
 	server.mount()
@@ -46,11 +46,11 @@ func (s *Server) mount() {
 
 	// Auth endpoints
 	authGoup := v1Group.Group("/auth")
-	{	
+	{
 		authGoup.POST("/login", s.dependencies.Controllers.Auth.Login)
 		authGoup.POST("/logout", s.dependencies.Controllers.Auth.Logout)
 		authGoup.POST(
-			"/refresh", 
+			"/refresh",
 			middlewares.ValidateAuth(s.dependencies.Services.JWTService),
 			s.dependencies.Controllers.Auth.RefreshToken,
 		)
@@ -77,11 +77,11 @@ func (s *Server) mount() {
 	adminleaderboardsGroup := v1Group.Group("/leaderboards")
 	{
 		adminleaderboardsGroup.POST("/", s.dependencies.Controllers.Leaderboards.Create)
-		adminleaderboardsGroup.POST("/entries",	s.dependencies.Controllers.Leaderboards.CreateEntry)
+		adminleaderboardsGroup.POST("/entries", s.dependencies.Controllers.Leaderboards.CreateEntry)
 		adminleaderboardsGroup.PUT("/", s.dependencies.Controllers.Leaderboards.Update)
-		adminleaderboardsGroup.DELETE("/:id",s.dependencies.Controllers.Leaderboards.Delete)
+		adminleaderboardsGroup.DELETE("/:id", s.dependencies.Controllers.Leaderboards.Delete)
 	}
-	
+
 	s.Engine.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Hello World",
