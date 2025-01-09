@@ -66,7 +66,7 @@ func TestLeaderboardsGet(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 
 			// Recreate controller with new mock on every testcase
-			uc := NewLeaderboardController(testCase.mockRepo)
+			uc := NewLeaderboardController(testCase.mockRepo, &mocks.MockRedisService{})
 
 			// Execute request and received recorded and decoded response
 			w := executeRequest(
@@ -137,7 +137,7 @@ func TestLeaderboardsGetEntries(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 
 			// Recreate controller with new mock on every testcase
-			uc := NewLeaderboardController(testCase.mockRepo)
+			uc := NewLeaderboardController(testCase.mockRepo, &mocks.MockRedisService{})
 
 			// Execute request and received recorded and decoded response
 			w := executeRequest(
@@ -159,6 +159,7 @@ func TestLeaderboardsCreate(t *testing.T) {
 	testCases := []struct {
 		name           string
 		mockRepo       *mocks.MockLeaderboardsRepo
+		mockCache      *mocks.MockRedisService
 		expectedStatus int
 		requestOpts    requestOpts
 	}{
@@ -168,6 +169,11 @@ func TestLeaderboardsCreate(t *testing.T) {
 				"Create",
 				[]any{mock.AnythingOfType("*models.LeaderboardRequest")},
 				[]any{&models.Leaderboard{ID: "1"}, nil}),
+			mockCache: setupRedisServiceMock(
+				"Set",
+				[]any{mock.Anything, mock.Anything, mock.Anything, mock.Anything},
+				[]any{nil},
+			),
 			expectedStatus: http.StatusCreated,
 			requestOpts: requestOpts{
 				body: models.LeaderboardRequest{Name: "test-leaderboard"},
@@ -179,6 +185,11 @@ func TestLeaderboardsCreate(t *testing.T) {
 				"Create",
 				[]any{mock.AnythingOfType("*models.LeaderboardRequest")},
 				[]any{&models.Leaderboard{ID: "1"}, errors.New("db error")}),
+			mockCache: setupRedisServiceMock(
+				"Set",
+				[]any{mock.Anything, mock.Anything, mock.Anything, mock.Anything},
+				[]any{nil},
+			),
 			expectedStatus: http.StatusInternalServerError,
 			requestOpts: requestOpts{
 				body: models.LeaderboardRequest{Name: "test-leaderboard"},
@@ -190,7 +201,27 @@ func TestLeaderboardsCreate(t *testing.T) {
 				"Create",
 				[]any{mock.AnythingOfType("*models.LeaderboardRequest")},
 				[]any{&models.Leaderboard{}, storage.ErrConflict}),
+			mockCache: setupRedisServiceMock(
+				"Set",
+				[]any{mock.Anything, mock.Anything, mock.Anything, mock.Anything},
+				[]any{nil},
+			),
 			expectedStatus: http.StatusInternalServerError,
+			requestOpts: requestOpts{
+				body: models.LeaderboardRequest{Name: "test-leaderboard"},
+			},
+		},
+		{
+			name: "create leaderboard cache error",
+			mockRepo: setupLeaderboardRepoMock(
+				"Create",
+				[]any{mock.AnythingOfType("*models.LeaderboardRequest")},
+				[]any{&models.Leaderboard{ID: "1"}, nil}),
+			mockCache: setupRedisServiceMock(
+				"Set",
+				[]any{mock.Anything, mock.Anything, mock.Anything, mock.Anything},
+				[]any{errors.New("cache error")}),
+			expectedStatus: http.StatusCreated, // Will still create the entry on the main db
 			requestOpts: requestOpts{
 				body: models.LeaderboardRequest{Name: "test-leaderboard"},
 			},
@@ -201,7 +232,7 @@ func TestLeaderboardsCreate(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 
 			// Recreate controller with new mock on every testcase
-			uc := NewLeaderboardController(testCase.mockRepo)
+			uc := NewLeaderboardController(testCase.mockRepo, testCase.mockCache)
 
 			// Execute request and received recorded and decoded response
 			w := executeRequest(
@@ -226,19 +257,43 @@ func TestLeaderboardsCreateEntry(t *testing.T) {
 		Score:         10,
 	}
 
+	// Create the leaderboard mock repo for each testCase
+	createEntryLeaderboardMock := mocks.MockLeaderboardsRepo{}
+	createEntryLeaderboardMock.On(
+		"CreateEntry",
+		mock.AnythingOfType("*models.LeaderboardEntryRequest"),
+	).Return(&models.LeaderboardEntry{ID: "1"}, nil).Once()
+	createEntryLeaderboardMock.On(
+		"Get",
+		mock.AnythingOfType("string"),
+	).Return(&models.Leaderboard{Live: true, ID: "1"}, nil).Once()
+
+	cacheErrorLeaderboardMock := mocks.MockLeaderboardsRepo{}
+	cacheErrorLeaderboardMock.On(
+		"CreateEntry",
+		mock.AnythingOfType("*models.LeaderboardEntryRequest"),
+	).Return(&models.LeaderboardEntry{}, nil).Once()
+	cacheErrorLeaderboardMock.On(
+		"Get",
+		mock.AnythingOfType("string"),
+	).Return(&models.Leaderboard{Live: true, ID: "1"}, nil).Once()
+
 	// Setup test cases
 	testCases := []struct {
 		name           string
 		mockRepo       *mocks.MockLeaderboardsRepo
+		mockCache      *mocks.MockRedisService
 		expectedStatus int
 		requestOpts    requestOpts
 	}{
 		{
-			name: "create leaderboard entry",
-			mockRepo: setupLeaderboardRepoMock(
-				"CreateEntry",
-				[]any{mock.AnythingOfType("*models.LeaderboardEntryRequest")},
-				[]any{&models.LeaderboardEntry{ID: "1"}, nil}),
+			name:     "create leaderboard entry",
+			mockRepo: &createEntryLeaderboardMock,
+			mockCache: setupRedisServiceMock(
+				"Set",
+				[]any{mock.Anything, mock.Anything, mock.Anything, mock.Anything},
+				[]any{nil},
+			),
 			expectedStatus: http.StatusCreated,
 			requestOpts:    requestOpts{body: exampleEntry},
 		},
@@ -248,6 +303,11 @@ func TestLeaderboardsCreateEntry(t *testing.T) {
 				"CreateEntry",
 				[]any{mock.AnythingOfType("*models.LeaderboardEntryRequest")},
 				[]any{&models.LeaderboardEntry{ID: "1"}, errors.New("db error")}),
+			mockCache: setupRedisServiceMock(
+				"Set",
+				[]any{mock.Anything, mock.Anything, mock.Anything, mock.Anything},
+				[]any{nil},
+			),
 			expectedStatus: http.StatusInternalServerError,
 			requestOpts:    requestOpts{body: exampleEntry},
 		},
@@ -257,8 +317,25 @@ func TestLeaderboardsCreateEntry(t *testing.T) {
 				"CreateEntry",
 				[]any{mock.AnythingOfType("*models.LeaderboardEntryRequest")},
 				[]any{&models.LeaderboardEntry{}, storage.ErrConflict}),
+			mockCache: setupRedisServiceMock(
+				"Set",
+				[]any{mock.Anything, mock.Anything, mock.Anything, mock.Anything},
+				[]any{nil},
+			),
 			expectedStatus: http.StatusInternalServerError,
 			requestOpts:    requestOpts{body: exampleEntry},
+		},
+		{
+			name:     "create leaderboard entry cache error",
+			mockRepo: &cacheErrorLeaderboardMock,
+			mockCache: setupRedisServiceMock(
+				"Set",
+				[]any{mock.Anything, mock.Anything, mock.Anything, mock.Anything},
+				[]any{errors.New("cache error")}),
+			expectedStatus: http.StatusCreated, // Will still create the entry on the main db
+			requestOpts: requestOpts{
+				body: models.LeaderboardRequest{Name: "test-leaderboard"},
+			},
 		},
 	}
 
@@ -266,7 +343,7 @@ func TestLeaderboardsCreateEntry(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 
 			// Recreate controller with new mock on every testcase
-			uc := NewLeaderboardController(testCase.mockRepo)
+			uc := NewLeaderboardController(testCase.mockRepo, testCase.mockCache)
 
 			// Execute request and received recorded and decoded response
 			w := executeRequest(
@@ -294,6 +371,7 @@ func TestLeaderboardsUpdate(t *testing.T) {
 	testCases := []struct {
 		name           string
 		mockRepo       *mocks.MockLeaderboardsRepo
+		mockCache      *mocks.MockRedisService
 		expectedStatus int
 		requestOpts    requestOpts
 	}{
@@ -303,6 +381,11 @@ func TestLeaderboardsUpdate(t *testing.T) {
 				"Update",
 				[]any{mock.AnythingOfType("*models.UpdateLeaderboardRequest")},
 				[]any{&models.Leaderboard{ID: "1"}, nil},
+			),
+			mockCache: setupRedisServiceMock(
+				"Set",
+				[]any{mock.Anything, mock.Anything, mock.Anything, mock.Anything},
+				[]any{nil},
 			),
 			expectedStatus: http.StatusOK,
 			requestOpts:    requestOpts{body: exampleLeaderboardUpdate},
@@ -317,13 +400,28 @@ func TestLeaderboardsUpdate(t *testing.T) {
 			expectedStatus: http.StatusInternalServerError,
 			requestOpts:    requestOpts{body: exampleLeaderboardUpdate},
 		},
+		{
+			name: "update leaderboard cache error",
+			mockRepo: setupLeaderboardRepoMock(
+				"Update",
+				[]any{mock.AnythingOfType("*models.UpdateLeaderboardRequest")},
+				[]any{&models.Leaderboard{ID: "1"}, nil},
+			),
+			mockCache: setupRedisServiceMock(
+				"Set",
+				[]any{mock.Anything, mock.Anything, mock.Anything, mock.Anything},
+				[]any{errors.New("cache error")},
+			),
+			expectedStatus: http.StatusOK,
+			requestOpts:    requestOpts{body: exampleLeaderboardUpdate},
+		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 
 			// Recreate controller with new mock on every testcase
-			uc := NewLeaderboardController(testCase.mockRepo)
+			uc := NewLeaderboardController(testCase.mockRepo, &mocks.MockRedisService{})
 
 			// Execute request and received recorded and decoded response
 			w := executeRequest(
@@ -393,7 +491,7 @@ func TestLeaderboardsDelete(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 
 			// Recreate controller with new mock on every testcase
-			uc := NewLeaderboardController(testCase.mockRepo)
+			uc := NewLeaderboardController(testCase.mockRepo, &mocks.MockRedisService{})
 
 			// Execute request and received recorded and decoded response
 			w := executeRequest(

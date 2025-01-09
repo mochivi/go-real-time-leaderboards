@@ -1,20 +1,27 @@
 package handlers
 
 import (
+	"context"
+	"fmt"
+	"log"
 	"net/http"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mochivi/go-real-time-leaderboards/internal/models"
 	"github.com/mochivi/go-real-time-leaderboards/internal/storage"
+	redis "github.com/mochivi/go-real-time-leaderboards/internal/storage/redis"
 )
 
 type LeaderboardController struct {
-	repo storage.LeaderboardRepo
+	repo  storage.LeaderboardRepo
+	redis redis.RedisService
 }
 
-func NewLeaderboardController(repo storage.LeaderboardRepo) LeaderboardController {
+func NewLeaderboardController(repo storage.LeaderboardRepo, redisService redis.RedisService) LeaderboardController {
 	return LeaderboardController{
-		repo: repo,
+		repo:  repo,
+		redis: redisService,
 	}
 }
 
@@ -117,6 +124,11 @@ func (l LeaderboardController) Create(c *gin.Context) {
 		return
 	}
 
+	// If leaderboard is created with live status, add to cache
+	if leaderboard.Live {
+		l.updateCache(c.Request.Context(), leaderboard)
+	}
+
 	c.JSON(http.StatusCreated, gin.H{
 		"data":    *leaderboard,
 		"message": "Leaderboard created",
@@ -153,11 +165,35 @@ func (l LeaderboardController) CreateEntry(c *gin.Context) {
 		return
 	}
 
+	// Update the cache asynchronously
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func(ctx context.Context) {
+		defer wg.Done()
+
+		// Get updated leaderboard from db with added entry
+		leaderboard, err := l.repo.Get(c.Request.Context(), leaderboardEntry.LeaderboardID)
+		if err != nil {
+			log.Printf("Failed to get leaderboard: %v", err)
+			return // End cache update operation
+		}
+
+		if leaderboard.Live {
+			// Update cache with new value
+			if err := l.updateCache(c.Request.Context(), leaderboard); err != nil {
+				log.Printf("Failed to update cache: %v", err)
+			}
+		}
+	}(c.Request.Context())
+
 	// Return success response
 	c.JSON(http.StatusCreated, gin.H{
 		"data":    leaderboardEntry,
 		"message": "Leaderboard entry added",
 	})
+
+	// Wait until cache is updated to end operation
+	wg.Wait()
 }
 
 func (l LeaderboardController) Update(c *gin.Context) {
@@ -179,6 +215,14 @@ func (l LeaderboardController) Update(c *gin.Context) {
 			"message": "Something went wrong",
 		})
 		return
+	}
+
+	// If leaderboard is created as live, add to cache
+	if updatedLeaderboard.Live {
+		// Leaderboards will have their expiration updated to 2 hours after creation/updates.
+		// This is nice so that recent games are also cached and users can look them up faster
+		// The cost of keeping the recent games cached is not high if there is enough RAM available for it
+		l.updateCache(c.Request.Context(), updatedLeaderboard)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -216,4 +260,18 @@ func (l LeaderboardController) Delete(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusNoContent, nil)
+}
+
+func (l LeaderboardController) updateCache(ctx context.Context, leaderboard *models.Leaderboard) error {
+	if err := l.redis.Set(
+		ctx,
+		leaderboard.RedisKey(),
+		leaderboard,
+		7200, // 2 hours is the default
+	); err != nil {
+		log.Printf("Failed to add leaderboard to redis: %v", err)
+		return fmt.Errorf("failed to add leaderboard to redis: %w", err)
+	}
+
+	return nil
 }
