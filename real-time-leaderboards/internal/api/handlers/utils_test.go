@@ -31,6 +31,12 @@ func setupUserRepoMock(funcName string, args, returns []any) *mocks.MockUserRepo
 	return &mockUserRepo
 }
 
+func setupRedisServiceMock(funcName string, args, returns []any) *mocks.MockRedisService {
+	mockRedisService := mocks.MockRedisService{}
+	mockRedisService.On(funcName, args...).Return(returns...)
+	return &mockRedisService
+}
+
 // Functions to help making the request to the handler below
 
 type requestOpts struct {

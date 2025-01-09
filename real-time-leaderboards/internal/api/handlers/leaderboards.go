@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mochivi/go-real-time-leaderboards/internal/models"
@@ -164,11 +165,35 @@ func (l LeaderboardController) CreateEntry(c *gin.Context) {
 		return
 	}
 
+	// Update the cache asynchronously
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func(ctx context.Context) {
+		defer wg.Done()
+
+		// Get updated leaderboard from db with added entry
+		leaderboard, err := l.repo.Get(c.Request.Context(), leaderboardEntry.LeaderboardID)
+		if err != nil {
+			log.Printf("Failed to get leaderboard: %v", err)
+			return // End cache update operation
+		}
+
+		if leaderboard.Live {
+			// Update cache with new value
+			if err := l.updateCache(c.Request.Context(), leaderboard); err != nil {
+				log.Printf("Failed to update cache: %v", err)
+			}
+		}
+	}(c.Request.Context())
+
 	// Return success response
 	c.JSON(http.StatusCreated, gin.H{
 		"data":    leaderboardEntry,
 		"message": "Leaderboard entry added",
 	})
+
+	// Wait until cache is updated to end operation
+	wg.Wait()
 }
 
 func (l LeaderboardController) Update(c *gin.Context) {
@@ -244,7 +269,7 @@ func (l LeaderboardController) updateCache(ctx context.Context, leaderboard *mod
 		leaderboard,
 		7200, // 2 hours is the default
 	); err != nil {
-		log.Println("Failed to add leaderboard to redis: %v", err)
+		log.Printf("Failed to add leaderboard to redis: %v", err)
 		return fmt.Errorf("failed to add leaderboard to redis: %w", err)
 	}
 
